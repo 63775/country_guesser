@@ -1,0 +1,10 @@
+{
+  "Alice": {
+    "total_points": 101,
+    "total_rounds": 41
+  },
+  "Bob": {
+    "total_points": 98,
+    "total_rounds": 35
+  }
+}
