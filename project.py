@@ -465,8 +465,8 @@ if "game" in st.session_state:
         st.markdown(full_html, unsafe_allow_html=True)
 
         # Button mittig darunter
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
+        _, center, _ = st.columns([1, 2, 1])
+        with center:
             if st.button("🔁 Start New Game"):
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
@@ -484,7 +484,7 @@ if "game" in st.session_state:
     player = game.get_current_player()
 
 
-    left_col, right_col = st.columns([2.0, 2.0], gap="large")
+    left_col, right_col = st.columns([1.5, 2.2], gap="large")
 
     with right_col:
         display_interactive_map(game.country, game)
