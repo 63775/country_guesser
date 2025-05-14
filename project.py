@@ -1,6 +1,4 @@
-#Code Elias Stand 06.06
-#Code Lukas Stand 05.05.
-
+# Elias Stand 09.05. 18:00
 
 import streamlit as st
 import random
@@ -44,6 +42,39 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Define difficulty lists manually
+difficulty_lists = {
+    "Easy": [
+        "United States", "United Kingdom", "Germany", "France", "Italy", "Spain", "Canada", "Australia",
+        "China", "Japan", "Brazil", "Russia", "Netherlands", "Austria", "Switzerland", "Portugal", "Belgium",
+        "Sweden", "Norway", "Denmark", "Ireland", "Poland", "Greece", "Turkey", "Egypt", "South Africa",
+        "India", "Mexico", "Argentina", "South Korea"
+    ],
+    "Medium": [
+        "Thailand", "Morocco", "Ukraine", "Israel", "Tunisia", "United Arab Emirates", "Czech Republic",
+        "Romania", "Serbia", "Croatia", "Hungary", "Finland", "Slovakia", "Bulgaria", "Algeria", "Vietnam",
+        "Indonesia", "Malaysia", "Pakistan", "Nigeria", "Colombia", "Chile", "Peru", "Iran", "Kazakhstan",
+        "Philippines", "Cuba", "Jordan", "Lebanon", "Venezuela"
+    ],
+    "Hard": [
+        "Uzbekistan", "Myanmar", "Bangladesh", "Nepal", "Laos", "Cambodia", "Mongolia", "Sri Lanka",
+        "Ethiopia", "Kenya", "Ghana", "Zambia", "Angola", "Mozambique", "Sudan", "Yemen", "Syria", "Afghanistan",
+        "Mali", "Burkina Faso", "Chad", "Niger", "Rwanda", "Uganda", "Tanzania", "Democratic Republic of the Congo",
+        "Bolivia", "Guatemala", "Honduras", "North Korea", "Albania", "Armenia", "Azerbaijan", "Bahrain",
+        "Belarus", "Benin", "Bhutan", "Bosnia and Herzegovina", "Botswana", "Burundi", "Central African Republic",
+        "Comoros", "Congo", "Costa Rica", "Côte d'Ivoire", "Cyprus", "Djibouti", "Dominican Republic", "Ecuador",
+        "El Salvador", "Eritrea", "Estonia", "Eswatini", "Fiji", "Gabon", "Gambia", "Georgia", "Guinea",
+        "Guinea-Bissau", "Guyana", "Haiti", "Iceland", "Iraq", "Jamaica", "Kyrgyzstan", "Latvia", "Lesotho",
+        "Liberia", "Libya", "Lithuania", "Madagascar", "Malawi", "Maldives", "Mauritania", "Mauritius", "Moldova",
+        "Namibia", "Nicaragua", "North Macedonia", "Oman", "Panama", "Papua New Guinea", "Paraguay", "Qatar",
+        "Sierra Leone", "Singapore", "Slovenia", "Somalia", "Suriname", "Timor-Leste", "Togo",
+        "Trinidad and Tobago", "Turkmenistan", "Uruguay", "Zimbabwe", "Cabo Verde", "Luxembourg", "Brunei",
+        "Montenegro", "Equatorial Guinea", "Sao Tome and Principe", "Seychelles", "Solomon Islands", "Vanuatu",
+        "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "Kiribati", "Barbados", "Belize", "Bahamas",
+        "Saint Kitts and Nevis", "Micronesia", "Palau", "Tonga", "Marshall Islands", "Antigua and Barbuda", "Dominica"
+    ]
+}
+difficulty_lists["All Countries"] = difficulty_lists["Easy"] + difficulty_lists["Medium"] + difficulty_lists["Hard"]
 
 # ==================== Prepare Geo Data ====================
 @st.cache_data
@@ -72,17 +103,12 @@ def fetch_countries_by_population(difficulty):
     url = "https://restcountries.com/v3.1/all"
     r = requests.get(url, timeout=10)
     data = r.json() if r.status_code == 200 else []
-    data = [c for c in data if c.get('population', 0) > 0 and c.get('name', {}).get('common')]
-    sorted_countries = sorted(data, key=lambda x: x.get('population', 0), reverse=True)
-    if difficulty == "Easy":
-        selected = sorted_countries[:30]
-    elif difficulty == "Medium":
-        selected = sorted_countries[30:60]
-    elif difficulty == "Hard":
-        selected = sorted_countries[60:90]
-    else:
-        selected = sorted_countries[:90]
-    return selected
+
+    # Match by name using the manual difficulty list
+    name_to_country = {c["name"]["common"]: c for c in data if "name" in c and "common" in c["name"]}
+    target_names = difficulty_lists.get(difficulty, [])
+    return [name_to_country[name] for name in target_names if name in name_to_country]
+
 
 # ==================== Leaderboard ====================
 def load_leaderboard():
@@ -269,8 +295,8 @@ def display_interactive_map(country, game):
             guess_pt = Point(lon, lat)
             row = world_gdf[world_gdf['name_lower'] == country['name']['common'].lower()]
             if not row.empty and row.iloc[0]['geometry'].contains(guess_pt):
-                pts = max(5 - (game.hint_index - 1), 1)
-                pts = max(pts - st.session_state.help_used_this_round, 0)  # Deduct points for help usage
+                base_pts = max(5 - (game.hint_index - 1), 1)
+                pts = max(base_pts - st.session_state.help_used_this_round, 0)
                 game.get_current_player().add_score(pts)
                 game.message = f"🎉 Hit! +{pts} points."
                 game.round_over = True
@@ -294,8 +320,7 @@ def display_interactive_map(country, game):
                             game.message += f" Round over. Answer: {country['name']['common']}."
                             game.round_over = True
 
-            # Reset help counter for new round
-            st.session_state.help_used_this_round = 0
+
 
             st.rerun()
 
@@ -357,6 +382,15 @@ class Game:
         self.guess_count = 0
         self.round_over = False
         self.message = ""
+
+        # Reset session state for round-specific help tracking
+        st.session_state.guesses = []
+        st.session_state.current_country = None
+        st.session_state.last_click_processed = None
+        st.session_state.show_help_circle = False
+        st.session_state.help_button_clicked = False
+        st.session_state.help_used_this_round = 0
+
 
     def process_guess(self, guess):
         corr = self.country["name"]["common"].lower().strip()
@@ -474,11 +508,6 @@ if "game" in st.session_state:
 
         st.stop()
 
-
-
-
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 
     player = game.get_current_player()
@@ -487,6 +516,7 @@ if "game" in st.session_state:
     left_col, right_col = st.columns([1.5, 2.2], gap="large")
 
     with right_col:
+        st.markdown("### 🗺️ Just click on the map to guess the country location!")
         display_interactive_map(game.country, game)
 
         if st.button("❌ Exit Game"):
